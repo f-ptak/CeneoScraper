@@ -1,33 +1,36 @@
-import requests
 import json
+import requests
 from bs4 import BeautifulSoup
 
-url = "https://www.ceneo.pl/21262351#tab=reviews"
-response = requests.get(url)
+product_id = input("Please enter the product ID:\n").replace(" ", "")
+print("Product ID entered. Igniting the Scrape Machine...")
 
-page = BeautifulSoup(response.text, "html.parser")
+product_url = "https://www.ceneo.pl/" + product_id + "#tab=reviews"
 
-opinions = page.select("div.js_product-review")
+all_opinions = []
+opinion_amount = 0
 
-while(url) :
-    all_opinions = []
+while product_url:
+    response = requests.get(product_url)
+    page = BeautifulSoup(response.text, "html.parser")
+    opinions = page.select("div.js_product-review")
 
     for opinion in opinions:
         opinion_id = opinion["data-entry-id"]
         author = opinion.select_one("span.user-post__author-name").get_text().strip()
         try:
-            recomendation = opinion.select_one("span.user-post__author-recomendation> em.recommended").get_text().strip()
+            recommendation = opinion.select_one("span.user-post__author-recomendation> em.recommended").get_text().strip()
         except AttributeError:
-            recomendation = None
+            recommendation = None
         stars = opinion.select_one("span.user-post__score-count").get_text().strip()
         content = opinion.select_one("div.user-post__text").get_text().strip()
         useful = opinion.select_one("button.vote-yes > span").get_text().strip()
         useless = opinion.select_one("button.vote-no > span").get_text().strip()
-        published = opinion.select_one("span.user-post__published > time:nth-child(1)")["datetime"]
+        published_date = opinion.select_one("span.user-post__published > time:nth-child(1)")["datetime"]
         try:
-            purchased = opinion.select_one("span.user-post__published > time:nth-child(2)")["datetime"]
+            purchased_date = opinion.select_one("span.user-post__published > time:nth-child(2)")["datetime"]
         except TypeError:
-            purchased = None
+            purchased_date = None
         pros = opinion.select("div[class$=positives] ~ div.review-feature__item")
         pros = [item.get_text().strip() for item in pros]
         cons = opinion.select("div[class$=negatives] ~ div.review-feature__item")
@@ -36,23 +39,26 @@ while(url) :
         single_opinion = {
             "opinion_id": opinion_id,
             "author": author,
-            "recomendation": recomendation,
+            "recomendation": recommendation,
             "stars": stars,
             "content": content,
             "useful": useful,
             "useless": useless,
-            "published": published,
-            "purchased": purchased,
+            "published": published_date,
+            "purchased": purchased_date,
             "pros": pros,
             "cons": cons
         }
 
         all_opinions.append(single_opinion)
+        opinion_amount += 1
 
     try:
-        url = "https://www.ceneo.pl"+page.select_one("a.pagination__next")["href"]
+        product_url = "https://www.ceneo.pl" + page.select_one("a.pagination__next")["href"]
     except TypeError:
-        url = None
+        product_url = None
 
-with open("opinions/2234411.json", "w", encoding="UTF-8") as jf:
+with open("opinions/" + product_id + ".json", "w", encoding="UTF-8") as jf:
     json.dump(all_opinions, jf, indent=4, ensure_ascii=False)
+
+print(f"Done! Opinions found in the scrapescape: {opinion_amount}.")
